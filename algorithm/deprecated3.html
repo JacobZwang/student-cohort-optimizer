@@ -1,0 +1,94 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="par"></div>
+    <script>
+      const viz = document.getElementById("par");
+
+      const teachers = new Array(100);
+      const students = new Array(100);
+      const courses = new Array(20);
+
+      const numPeriods = 6;
+      const numPaths = teachers.length / numPeriods;
+      const maxStudentsPerClass = 10;
+      const cohortSize = 3;
+      const numCohorts = Math.ceil(numPaths / cohortSize);
+
+      const digitsForTeacher = 3;
+      const digitsForCourse = 3;
+      const digitsForStudent = 4;
+
+      const digitsForPeriod =
+        digitsForCourse +
+        digitsForTeacher +
+        maxStudentsPerClass * digitsForStudent;
+
+      const digitsForPath = numPeriods * digitsForPeriod;
+      const digitsForTotal = numPaths * digitsForPath;
+
+      class DNA {
+        constructor() {
+          this.generation = Array.from({ length: digitsForTotal }, () =>
+            getRandomIntBelow(9)
+          ).join("");
+        }
+        getPaths() {
+          return chunkSubstr(this.generation, digitsForPath);
+        }
+        getCohorts() {
+          const paths = this.getPaths();
+          const cohorts = [];
+          for (let i = 0; i < numCohorts; i++) {
+            cohorts.push(
+              paths.slice(i * cohortSize, i * cohortSize + cohortSize)
+            );
+          }
+          return cohorts;
+        }
+        getStudentsFromCohortPeriod(number) {
+            this.getCohorts()[number] 
+        }
+      }
+
+      function getPathRange([beginning, end], number) {
+          return [beginning + number * digitsForPath, ] 
+      }
+
+      viz.innerHTML = printCohortsAsParagraphs(new DNA().getCohorts());
+
+      function printCohortsAsParagraphs(cohorts) {
+        const arr = [];
+        for (const cohort of cohorts) {
+          arr.push(printPathsAsParagraphs(cohort));
+        }
+        return arr.join("<br>");
+      }
+
+      function printPathsAsParagraphs(paths) {
+        return "<p>" + paths.join("</p><p>") + "</p>";
+      }
+
+      function getRandomIntBelow(max) {
+        return Math.floor(Math.random() * Math.floor(max));
+      }
+
+      // https://stackoverflow.com/questions/7033639/split-large-string-in-n-size-chunks-in-javascript/10915724
+      function chunkSubstr(str, size) {
+        const numChunks = Math.ceil(str.length / size);
+        const chunks = new Array(numChunks);
+
+        for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+          chunks[i] = str.substr(o, size);
+        }
+
+        return chunks;
+      }
+    </script>
+  </body>
+</html> -->
