@@ -1,142 +1,48 @@
-const testVars = {
-  numCourses: 50,
-};
+function createSchool(students, teachers, courses) {
+  const numPeriods = 6;
+  const numPaths = teachers.length / numPeriods;
+  const maxStudentsPerClass = 50;
 
-class Course {
-  constructor(name) {
-    this.name = name;
-  }
-}
+  const digitsForTeacher = 3;
+  const digitsForCourse = 3;
+  const digitsForStudent = 4;
 
-class Courses {
-  fromIncrementalTestData() {
-    return (function () {
-      const arr = [];
-      for (let i = 0; i < testVars.numCourses; i++) {
-        arr.push(new Course(i));
-      }
-      return arr;
-    })();
-  }
-  fromCSV() {}
-  fromJSON() {}
-}
+  const marginToStudents = digitsForTeacher + digitsForCourse;
 
-class Teacher {
-  constructor(name, potentialClasses) {
-    this.name = name;
-    switch (typeof requiredCourses) {
-      // is the user inputs a number it will generate that number of random classes the teacher can teach
-      case "number":
-        return (function () {
-          const arr = Utilities.getRandomIntBelow(testVars.numCourses);
-        })();
+  const pathLength =
+    numPaths *
+    numPeriods *
+    (digitsForCourse +
+      digitsForTeacher +
+      maxStudentsPerClass * digitsForStudent);
 
-      // if the user inputs a set it will enumerate it
-      case "object":
-        return requiredCourses;
-    }
-  }
-}
+  this.generation = Array.from({ length: pathLength }, () =>
+    getRandomIntBelow(9)
+  ).join("");
 
-class Teachers {
-  fromIncrementalTestData() {
-    return (function () {
-      const arr = [];
-      for (let i = 0; i < numCourses; i++) {
-        arr.push(new Teacher(i, 3));
-      }
-      return arr;
-    })();
-  }
-  fromCSV() {}
-  fromJSON() {}
-}
+  this.activePath = undefined;
 
-class Student {
-  constructor(name, requiredCourses) {
-    this.name = name;
+  createSchool.prototype.setActivePath = function (pathNum) {
+    const beginning = pathNum * pathLength;
+    this.activePath = this.generation.slice(beginning, beginning + pathLength);
+  };
 
-    switch (typeof requiredCourses) {
-      // is the user inputs a number it will generate random classes for the student
-      case "number":
-        return (function () {
-          const arr = [];
-          for (let i = 0; i < requiredCourses; i++) {
-            arr.push(new Teacher(i));
-          }
-          return Utilities.shuffle(arr);
-        })();
-
-      // if the user inputs a set it will enumerate it
-      case "object":
-        return requiredCourses;
-    }
-  }
-}
-
-class Students {
-  fromIncrementalTestData(numCourses) {
+  createSchool.prototype.getStudentsFromActivePath = function () {
     const arr = [];
-    for (let i = 0; i < numCourses; i++) {
-      arr.push(new Course(i));
+    for (let i = 0; i < maxStudentsPerClass; i++) {
+      const beginning = marginToStudents + i * digitsForStudent;
+      arr.push(this.activePath.slice(beginning, beginning + digitsForStudent));
     }
-  }
-  fromCSV() {}
-  fromJSON() {}
+    return arr;
+  };
 }
 
-class GeneticAlgorithmManager {
-  constructor(courses, teachers, students, cohortSize) {
-    this.cohortSize = cohortSize;
-    this.students = students;
-  }
-  reproduce() {
-    return new ReproductionManager();
-  }
-}
+const result = (function () {
+  const school = new createSchool(Array(1000), Array(100), Array(100));
+  school.setActivePath(0);
+  console.log(school.getStudentsFromActivePath());
+})();
 
-class FitnessManager {
-  constructor() {}
-}
-
-class ReproductionManager {
-  constructor() {}
-  select() {}
-  reproduce() {}
-}
-
-class Utilities {
-  fromIncrementalTestData(numCourses) {
-    return (function () {
-      const arr = [];
-      for (let i = 0; i < numCourses; i++) {
-        arr.push(new Course(i));
-      }
-      return arr;
-    })();
-  }
-  getRandomIntBelow(max) {
-    return Math.floor(Math.random() * Math.floor(max));
-  }
-  // Fisher-Yates shuffle taken from http://sedition.com/perl/javascript-fy.html
-  shuffle(array) {
-    var currentIndex = array.length,
-      temporaryValue,
-      randomIndex;
-
-    // While there remain elements to shuffle...
-    while (0 !== currentIndex) {
-      // Pick a remaining element...
-      randomIndex = Math.floor(Math.random() * currentIndex);
-      currentIndex -= 1;
-
-      // And swap it with the current element.
-      temporaryValue = array[currentIndex];
-      array[currentIndex] = array[randomIndex];
-      array[randomIndex] = temporaryValue;
-    }
-
-    return array;
-  }
+function getRandomIntBelow(max) {
+  return Math.floor(Math.random() * Math.floor(max));
 }
