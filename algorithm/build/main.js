@@ -417,8 +417,6 @@ function callback() {
         .studentDoesntExistCount}</p>
   <p>number of classes that don't exist: ${-population.highestOfGeneration.info
         .numClassesThatDontExist}</p>
-  <p>number of students that don't exist: ${-population.highestOfGeneration.info
-        .studentDoesntExistCount}</p>
   <p>number of teachers that don't exist: ${-population.highestOfGeneration.info
         .numTeachersThatDontExist}</p>
   <p>number of students in 2 places at once: ${-population.highestOfGeneration
