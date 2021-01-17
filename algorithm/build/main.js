@@ -1,7 +1,7 @@
 class PopulationManager {
     constructor(students, teachers, courses, options = {
         maxNumPeriods: 6,
-        maxNumStudentsPerRoom: 20,
+        maxNumStudentsPerRoom: 10,
         numPathsInCohort: 3,
     }) {
         const numPaths = teachers.length / options.maxNumPeriods;
@@ -57,8 +57,9 @@ class PopulationManager {
         return this;
     }
     score() {
-        for (const DNA of this.population)
+        for (const DNA of this.population) {
             DNA.setScore();
+        }
     }
     reproduce() {
         this.highestOfGeneration = undefined;
@@ -73,31 +74,55 @@ class PopulationManager {
             let m1 = mate1.asText().split("");
             let m2 = mate2.asText().split("");
             let combo = [];
-            for (let j = 1; j < m1.length; j = j + 1) {
-                combo.push(m1[j + getRandomIntBelow(9)]);
-                combo.push(m2[j + getRandomIntBelow(9)]);
-                // mutate
-                if (getRandomIntBelow(100) === 1) {
+            const spliter = getRandomIntBelow(9);
+            let counter = 0;
+            for (let j = 0; j < m1.length; j = j + 1) {
+                if (counter < spliter) {
+                    combo.push(m1[j]);
+                }
+                else {
+                    combo.push(m2[j]);
+                    if (counter === spliter) {
+                        counter = 9;
+                    }
+                }
+                // mutate;
+                if (getRandomIntBelow(300) === 1) {
                     combo.pop();
                     combo.push(getRandomIntBelow(9));
                 }
+                // insert dashes as mutation here
             }
             let comboStr = combo.join("");
             this.nextGeneration.push(new DNA(comboStr, this.helpers, this.data));
         }
-        // this.population.push(new DNABuilder(this.data, this.helpers).build());
-        this.highestOfGeneration = this.getBest();
-        this.nextGeneration.push(this.highestOfGeneration);
+        const best = this.getBest();
+        if (this.highestOfGeneration < best) {
+            this.population.splice(getRandomIntBelow(this.population.length), 1);
+            this.population.push(best);
+        }
+        this.highestOfGeneration = best;
+        // if (this.highestOfGeneration === undefined) {
+        //     this.population.pop()
+        //   this.highestOfGeneration = best;
+        //   this.nextGeneration.push(this.highestOfGeneration);
+        // }
+        // if (this.highestOfGeneration.score !== best) {
+        //     this.population.pop()
+        //   this.highestOfGeneration = best;
+        //   this.nextGeneration.push(this.highestOfGeneration);
+        // }
         this.population = this.nextGeneration;
     }
     getBest() {
         let highest = undefined;
         for (let i = 0; i < this.population.length; i++) {
+            const best = this.getDNA(i);
             if (highest === undefined) {
-                highest = this.getDNA(i);
+                highest = best;
             }
-            else if (this.getDNA(i).score > highest.score) {
-                highest = this.getDNA(i);
+            else if (best.score > highest.score) {
+                highest = best;
             }
         }
         return highest;
@@ -138,6 +163,7 @@ class DNA extends RangeElement {
         this.data = data;
         this.helpers = helpers;
         this.score = undefined;
+        this.info = undefined;
     }
     getPath(index) {
         return new Path(this.source, [
@@ -167,11 +193,17 @@ class DNA extends RangeElement {
     }
     setScore() {
         let iscolationCounter = 0;
+        let studentDoesntExistCount = 0;
         for (const cohort of this.getCohorts()) {
             const periods = cohort.getStudentsInPeriods();
             for (let i = 1; i < periods.length; i++) {
                 for (const student of periods[i]) {
+                    // check if student exists, if they don't lower dna score
+                    if (parseInt(student.asText()) > this.data.students.length) {
+                        studentDoesntExistCount++;
+                    }
                     for (const student2 of periods[i - 1]) {
+                        // check if the student appears in the lat period, if they do increase score
                         if (student.asText() === student2.asText()) {
                             iscolationCounter++;
                         }
@@ -196,11 +228,14 @@ class DNA extends RangeElement {
                 }
             }
         }
-        let singularityScore = singularity /
-            (this.helpers.numPaths *
-                this.helpers.numStudents *
-                this.helpers.maxNumPeriods);
-        this.score = iscolationScore - singularity;
+        let singularityScore = singularity / (this.helpers.numPaths * this.helpers.maxNumPeriods);
+        this.score =
+            /* iscolationScore - */ -singularityScore - studentDoesntExistCount;
+        this.info = {
+            singularity,
+            iscolationCounter,
+            studentDoesntExistCount,
+        };
     }
 }
 class Cohort extends RangeElement {
@@ -253,7 +288,7 @@ class Path extends RangeElement {
     }
     getPeriods() {
         const arr = [];
-        for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
+        for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
             arr.push(this.getPeriod(i));
         }
         return arr;
@@ -311,7 +346,13 @@ class Course extends RangeElement {
 function getRandomIntBelow(max) {
     return Math.floor(Math.random() * Math.floor(max));
 }
-const population = new PopulationManager(Array(1000), Array(50), Array(30)).createPopulation(100);
+const population = new PopulationManager(Array.from({ length: 500 }, () => ({
+    requiredCourses: Array.from({ length: getRandomIntBelow(6) }, () => getRandomIntBelow(20)),
+})), Array(10), Array(30), {
+    maxNumPeriods: 3,
+    maxNumStudentsPerRoom: 10,
+    numPathsInCohort: 2,
+}).createPopulation(100);
 const viz = document.getElementById("viz");
 const dna = document.createElement("div");
 const br = () => document.createElement("br");
@@ -354,8 +395,7 @@ function callback() {
     viz.appendChild(dna);
     i++;
     console.log(population.highestOfGeneration.score);
-    if (i < 1000) {
-        window.requestAnimationFrame(callback);
-    }
+    console.log(population.highestOfGeneration.info);
+    window.requestAnimationFrame(callback);
 }
 window.requestAnimationFrame(callback);
