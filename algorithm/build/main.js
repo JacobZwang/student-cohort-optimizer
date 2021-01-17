@@ -192,34 +192,19 @@ class DNA extends RangeElement {
         return arr;
     }
     setScore() {
-        let iscolationCounter = 0;
+        const paths = this.getPaths();
         let studentDoesntExistCount = 0;
-        for (const cohort of this.getCohorts()) {
-            const periods = cohort.getStudentsInPeriods();
-            for (let i = 1; i < periods.length; i++) {
-                for (const student of periods[i]) {
+        let singularity = 0;
+        for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
+            for (let j = 1; j < paths.length; j++) {
+                for (const student of paths[j].getPeriod(i).getStudents()) {
                     // check if student exists, if they don't lower dna score
                     if (parseInt(student.asText()) > this.data.students.length) {
                         studentDoesntExistCount++;
                     }
-                    for (const student2 of periods[i - 1]) {
-                        // check if the student appears in the lat period, if they do increase score
-                        if (student.asText() === student2.asText()) {
-                            iscolationCounter++;
-                        }
-                    }
-                }
-            }
-        }
-        let iscolationScore = iscolationCounter /
-            (this.helpers.numStudents *
-                this.helpers.maxNumPeriods *
-                this.helpers.numPathsInCohort);
-        let singularity = 0;
-        const paths = this.getPaths();
-        for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
-            for (let j = 1; j < paths.length; j++) {
-                for (const student of paths[j].getPeriod(i).getStudents()) {
+                    //   const parsedStudent = parseInt(student.asText());
+                    //   if (this.data.students[parsedStudent].requiredCourses.some(item => item === paths[j].getPeriod(i).) ) {
+                    //   }
                     for (const student2 of paths[j - 1].getPeriod(i).getStudents()) {
                         if (student.asText() === student2.asText()) {
                             singularity++;
@@ -233,7 +218,6 @@ class DNA extends RangeElement {
             /* iscolationScore - */ -singularityScore - studentDoesntExistCount;
         this.info = {
             singularity,
-            iscolationCounter,
             studentDoesntExistCount,
         };
     }
