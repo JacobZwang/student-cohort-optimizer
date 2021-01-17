@@ -31,6 +31,7 @@ interface PopulationManager {
   nextGeneration: Array<DNA>;
   data: data;
   highestOfGeneration: DNA;
+  numGeneration: number;
 }
 
 class PopulationManager {
@@ -44,7 +45,7 @@ class PopulationManager {
       numPathsInCohort: 3,
     }
   ) {
-    const numPaths = teachers.length / options.maxNumPeriods;
+    const numPaths = teachers.length;
     const numStudents = students.length;
 
     const digitsForTeacher = 2;
@@ -92,6 +93,7 @@ class PopulationManager {
     this.population = [];
     this.nextGeneration = [];
     this.highestOfGeneration = undefined;
+    this.numGeneration = 0;
   }
   createPopulation(numDNA) {
     for (let i = 0; i < numDNA; i++) {
@@ -114,6 +116,7 @@ class PopulationManager {
     }
   }
   reproduce() {
+    this.numGeneration = this.numGeneration + 1;
     this.highestOfGeneration = undefined;
     this.nextGeneration = [];
     for (const i of this.population) {
@@ -528,8 +531,8 @@ const population = new PopulationManager(
       getRandomIntBelow(10)
     ),
   })),
-  Array(20),
   Array(10),
+  Array(20),
   {
     maxNumPeriods: 3,
     maxNumStudentsPerRoom: 10,
@@ -566,6 +569,19 @@ function callback() {
   population.score();
   population.reproduce();
   info.innerHTML = /*html*/ `
+  <br>
+  <p>This is an example school with ${
+    population.highestOfGeneration.data.courses.length
+  } courses, ${population.highestOfGeneration.data.teachers.length} teachers, ${
+    population.highestOfGeneration.data.students.length
+  } students, and ${
+    population.highestOfGeneration.helpers.maxNumPeriods
+  } periods. The large number above is a dna strand that represents the entire school schedule. The gaps between the lines represent cohort iscolation. It's format is as follows:</p>
+  <p><span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ... <span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ...</p>
+  <p><span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ... <span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ...</p>
+  <br>
+  <h3>total error: ${-population.highestOfGeneration.score}</h3>
+  <h3>generation number: ${population.numGeneration}</h3>
   <p>number of students not in required classes: ${-population
     .highestOfGeneration.info.numStudentsNotInRequiredClasses}</p>
   <p>number of students that don't exist: ${-population.highestOfGeneration.info
@@ -598,8 +614,6 @@ function callback() {
   viz.append(dna);
   viz.append(info);
   i++;
-  console.log(population.highestOfGeneration.score);
-  console.log(population.highestOfGeneration.info);
 
   window.requestAnimationFrame(callback);
 }
