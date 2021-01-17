@@ -47,8 +47,8 @@ class PopulationManager {
     const numPaths = teachers.length / options.maxNumPeriods;
     const numStudents = students.length;
 
-    const digitsForTeacher = 3;
-    const digitsForCourse = 3;
+    const digitsForTeacher = 2;
+    const digitsForCourse = 2;
     const digitsForStudent = 4;
     const digitsForPeriod =
       digitsForCourse +
@@ -167,16 +167,6 @@ class PopulationManager {
       this.population.push(best);
     }
     this.highestOfGeneration = best;
-    // if (this.highestOfGeneration === undefined) {
-    //     this.population.pop()
-    //   this.highestOfGeneration = best;
-    //   this.nextGeneration.push(this.highestOfGeneration);
-    // }
-    // if (this.highestOfGeneration.score !== best) {
-    //     this.population.pop()
-    //   this.highestOfGeneration = best;
-    //   this.nextGeneration.push(this.highestOfGeneration);
-    // }
     this.population = this.nextGeneration;
   }
   getBest() {
@@ -278,7 +268,7 @@ class DNA extends RangeElement {
   }
   getPaths() {
     const arr = [];
-    for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
+    for (let i = 0; i < this.helpers.numPaths; i++) {
       arr.push(this.getPath(i));
     }
     return arr;
@@ -303,37 +293,88 @@ class DNA extends RangeElement {
   setScore() {
     const paths = this.getPaths();
     let studentDoesntExistCount = 0;
-
+    let numStudentsNotInRequiredClasses = 0;
+    let numClassesThatDontExist = 0;
+    let numTeachersThatDontExist = 0;
+    let numStudentsNotIscolated = 0;
     let singularity = 0;
+
     for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
       for (let j = 1; j < paths.length; j++) {
-        for (const student of paths[j].getPeriod(i).getStudents()) {
+        // check if the class exists
+        if (
+          parseInt(paths[j - 1].getPeriod(i).getCourse().asText()) >
+          this.data.courses.length
+        ) {
+          numClassesThatDontExist--;
+        }
+
+        // check teacher exists
+        if (
+          parseInt(paths[j - 1].getPeriod(i).getTeacher().asText()) >
+          this.data.teachers.length
+        ) {
+          numTeachersThatDontExist--;
+        }
+
+        for (const student of paths[j - 1].getPeriod(i).getStudents()) {
           // check if student exists, if they don't lower dna score
           if (parseInt(student.asText()) > this.data.students.length) {
-            studentDoesntExistCount++;
+            studentDoesntExistCount--;
           }
 
-          //   const parsedStudent = parseInt(student.asText());
-          //   if (this.data.students[parsedStudent].requiredCourses.some(item => item === paths[j].getPeriod(i).) ) {
+          // check if student is in required classes
+          const parsedStudent = parseInt(student.asText());
+          if (this.data.students[parsedStudent] === undefined) {
+            numStudentsNotInRequiredClasses--;
+          } else if (
+            this.data.students[parsedStudent].requiredCourses.some(
+              (item) =>
+                item ===
+                parseInt(paths[j - 1].getPeriod(i).getCourse().asText())
+            ) === false
+          ) {
+            numStudentsNotInRequiredClasses--;
+          }
 
-          //   }
-
-          for (const student2 of paths[j - 1].getPeriod(i).getStudents()) {
+          for (const student2 of paths[j].getPeriod(i).getStudents()) {
             if (student.asText() === student2.asText()) {
-              singularity++;
+              singularity--;
             }
           }
         }
       }
     }
+
+    const cohorts = this.getCohorts();
+    for (let i = 1; i < cohorts.length; i++) {
+      for (const student of cohorts[i].getStudents()) {
+        for (const student2 of cohorts[i - 1].getStudents()) {
+          if (student.asText() === student2.asText()) {
+            numStudentsNotIscolated--;
+          }
+        }
+      }
+    }
+
     let singularityScore =
       singularity / (this.helpers.numPaths * this.helpers.maxNumPeriods);
 
     this.score =
-      /* iscolationScore - */ -singularityScore - studentDoesntExistCount;
+      numStudentsNotInRequiredClasses +
+      singularity +
+      studentDoesntExistCount +
+      numClassesThatDontExist +
+      numTeachersThatDontExist +
+      numStudentsNotIscolated;
+
     this.info = {
       singularity,
       studentDoesntExistCount,
+      numStudentsNotInRequiredClasses,
+      numClassesThatDontExist,
+      numTeachersThatDontExist,
+      numStudentsNotIscolated,
     };
   }
 }
@@ -374,6 +415,13 @@ class Cohort extends RangeElement {
     const arr = [];
     for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
       arr.push(this.getStudentsInPeriod(i));
+    }
+    return arr;
+  }
+  getStudents() {
+    const arr = [];
+    for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
+      for (const student of this.getStudentsInPeriod(i)) arr.push(student);
     }
     return arr;
   }
@@ -475,13 +523,13 @@ function getRandomIntBelow(max) {
 }
 
 const population = new PopulationManager(
-  Array.from({ length: 500 }, () => ({
+  Array.from({ length: 200 }, () => ({
     requiredCourses: Array.from({ length: getRandomIntBelow(6) }, () =>
-      getRandomIntBelow(20)
+      getRandomIntBelow(10)
     ),
   })),
+  Array(20),
   Array(10),
-  Array(30),
   {
     maxNumPeriods: 3,
     maxNumStudentsPerRoom: 10,
@@ -510,12 +558,30 @@ const course = (text) => {
   element.innerHTML = text;
   return element;
 };
+const info = document.createElement("div");
 
 let i = 0;
 function callback() {
   dna.innerHTML = "";
   population.score();
   population.reproduce();
+  info.innerHTML = /*html*/ `
+  <p>number of students not in required classes: ${-population
+    .highestOfGeneration.info.numStudentsNotInRequiredClasses}</p>
+  <p>number of students that don't exist: ${-population.highestOfGeneration.info
+    .studentDoesntExistCount}</p>
+  <p>number of classes that don't exist: ${-population.highestOfGeneration.info
+    .numClassesThatDontExist}</p>
+  <p>number of students that don't exist: ${-population.highestOfGeneration.info
+    .studentDoesntExistCount}</p>
+  <p>number of teachers that don't exist: ${-population.highestOfGeneration.info
+    .numTeachersThatDontExist}</p>
+  <p>number of students in 2 places at once: ${-population.highestOfGeneration
+    .info.singularity}</p>
+  <p>number of students not iscolated: ${-population.highestOfGeneration.info
+    .numStudentsNotIscolated}</p>
+  `;
+
   for (const cohort of population.highestOfGeneration.getCohorts()) {
     for (const path of cohort.getPaths()) {
       for (const period of path.getPeriods()) {
@@ -529,7 +595,8 @@ function callback() {
     }
     dna.append(br());
   }
-  viz.appendChild(dna);
+  viz.append(dna);
+  viz.append(info);
   i++;
   console.log(population.highestOfGeneration.score);
   console.log(population.highestOfGeneration.info);
