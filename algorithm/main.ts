@@ -40,7 +40,7 @@ class PopulationManager {
     courses,
     options = {
       maxNumPeriods: 6,
-      maxNumStudentsPerRoom: 50,
+      maxNumStudentsPerRoom: 20,
       numPathsInCohort: 3,
     }
   ) {
@@ -133,31 +133,45 @@ class PopulationManager {
       const mate2 =
         competitor3.score > competitor4.score ? competitor1 : competitor2;
 
-      if (this.highestOfGeneration === undefined) {
-        this.highestOfGeneration = mate1;
-      } else if (mate1.score > this.highestOfGeneration.score) {
-        this.highestOfGeneration = mate1;
-      }
-
-      if (mate2.score > this.highestOfGeneration.score) {
-        this.highestOfGeneration = mate2;
-      }
-
       let m1 = mate1.asText().split("");
       let m2 = mate2.asText().split("");
       let combo = [];
       for (let j = 1; j < m1.length; j = j + 1) {
         combo.push(m1[j + getRandomIntBelow(9)]);
         combo.push(m2[j + getRandomIntBelow(9)]);
+
+        // mutate
+        if (getRandomIntBelow(100) === 1) {
+          combo.pop();
+          combo.push(getRandomIntBelow(9));
+        }
       }
       let comboStr = combo.join("");
       this.nextGeneration.push(new DNA(comboStr, this.helpers, this.data));
     }
+    // this.population.push(new DNABuilder(this.data, this.helpers).build());
+    this.highestOfGeneration = this.getBest();
+    this.nextGeneration.push(this.highestOfGeneration);
     this.population = this.nextGeneration;
+  }
+  getBest() {
+    let highest = undefined;
+    for (let i = 0; i < this.population.length; i++) {
+      if (highest === undefined) {
+        highest = this.getDNA(i);
+      } else if (this.getDNA(i).score > highest.score) {
+        highest = this.getDNA(i);
+      }
+    }
+    return highest;
   }
   getDNA(index) {
     return this.population[index];
   }
+  //   getDNAs() {
+  //       const arr = [];
+  //       for (let i = 0; i < this.population.length; i++)
+  //   }
 }
 
 interface RangeElement {
@@ -237,6 +251,13 @@ class DNA extends RangeElement {
       this.helpers
     );
   }
+  getPaths() {
+    const arr = [];
+    for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
+      arr.push(this.getPath(i));
+    }
+    return arr;
+  }
   getCohort(index) {
     return new Cohort(
       this.source,
@@ -256,7 +277,6 @@ class DNA extends RangeElement {
   }
   setScore() {
     let iscolationCounter = 0;
-
     for (const cohort of this.getCohorts()) {
       const periods = cohort.getStudentsInPeriods();
       for (let i = 1; i < periods.length; i++) {
@@ -269,9 +289,32 @@ class DNA extends RangeElement {
         }
       }
     }
-    this.score =
+    let iscolationScore =
       iscolationCounter /
-      (this.helpers.numStudents * this.helpers.maxNumPeriods);
+      (this.helpers.numStudents *
+        this.helpers.maxNumPeriods *
+        this.helpers.numPathsInCohort);
+
+    let singularity = 0;
+    const paths = this.getPaths();
+    for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
+      for (let j = 1; j < paths.length; j++) {
+        for (const student of paths[j].getPeriod(i).getStudents()) {
+          for (const student2 of paths[j - 1].getPeriod(i).getStudents()) {
+            if (student.asText() === student2.asText()) {
+              singularity++;
+            }
+          }
+        }
+      }
+    }
+    let singularityScore =
+      singularity /
+      (this.helpers.numPaths *
+        this.helpers.numStudents *
+        this.helpers.maxNumPeriods);
+
+    this.score = iscolationScore - singularity;
   }
 }
 
