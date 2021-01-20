@@ -1,445 +1,390 @@
-class PopulationManager {
-    constructor(students, teachers, courses, options = {
-        maxNumPeriods: 6,
-        maxNumStudentsPerRoom: 10,
-        numPathsInCohort: 3,
-    }) {
-        const numPaths = teachers.length;
-        const numStudents = students.length;
-        const digitsForTeacher = 2;
-        const digitsForCourse = 2;
-        const digitsForStudent = 4;
-        const digitsForPeriod = digitsForCourse +
-            digitsForTeacher +
-            options.maxNumStudentsPerRoom * digitsForStudent;
-        const digitsForPath = options.maxNumPeriods * digitsForPeriod;
-        const digitsForCohort = digitsForPath * options.numPathsInCohort;
-        const digitsForTotal = numPaths * digitsForPath;
-        const offsetForStudent = digitsForTeacher + digitsForCourse;
-        const offsetForCourse = digitsForTeacher;
-        this.data = {
-            teachers,
-            students,
-            courses,
-        };
-        this.teachers = teachers;
-        this.students = students;
-        this.courses = courses;
-        this.helpers = {
-            digitsForTeacher,
-            digitsForCourse,
-            digitsForStudent,
-            digitsForPeriod,
-            digitsForPath,
-            digitsForTotal,
-            digitsForCohort,
-            maxNumPeriods: options.maxNumPeriods,
-            numPaths,
-            numStudents,
-            maxNumStudentsPerRoom: options.maxNumStudentsPerRoom,
-            numPathsInCohort: options.numPathsInCohort,
-            numCohorts: Math.ceil(numPaths / options.numPathsInCohort),
-            offsetForStudent,
-            offsetForCourse,
-        };
-        this.population = [];
-        this.nextGeneration = [];
-        this.highestOfGeneration = undefined;
-        this.numGeneration = 0;
-    }
-    createPopulation(numDNA) {
-        for (let i = 0; i < numDNA; i++) {
-            this.population.push(new DNABuilder({
-                teachers: this.students,
-                students: this.teachers,
-                courses: this.courses,
-            }, this.helpers).build());
-        }
-        return this;
-    }
-    score() {
-        for (const DNA of this.population) {
-            DNA.setScore();
-        }
-    }
-    reproduce() {
-        this.numGeneration = this.numGeneration + 1;
-        this.highestOfGeneration = undefined;
-        this.nextGeneration = [];
-        for (const i of this.population) {
-            const competitor1 = this.population[getRandomIntBelow(this.population.length)];
-            const competitor2 = this.population[getRandomIntBelow(this.population.length)];
-            const competitor3 = this.population[getRandomIntBelow(this.population.length)];
-            const competitor4 = this.population[getRandomIntBelow(this.population.length)];
-            const mate1 = competitor1.score > competitor2.score ? competitor1 : competitor2;
-            const mate2 = competitor3.score > competitor4.score ? competitor1 : competitor2;
-            let m1 = mate1.asText().split("");
-            let m2 = mate2.asText().split("");
-            let combo = [];
-            const spliter = getRandomIntBelow(9);
-            let counter = 0;
-            for (let j = 0; j < m1.length; j = j + 1) {
-                if (counter < spliter) {
-                    combo.push(m1[j]);
-                }
-                else {
-                    combo.push(m2[j]);
-                    if (counter === spliter) {
-                        counter = 9;
-                    }
-                }
-                // mutate;
-                if (getRandomIntBelow(300) === 1) {
-                    combo.pop();
-                    combo.push(getRandomIntBelow(9));
-                }
-                // insert dashes as mutation here
-            }
-            let comboStr = combo.join("");
-            this.nextGeneration.push(new DNA(comboStr, this.helpers, this.data));
-        }
-        const best = this.getBest();
-        if (this.highestOfGeneration < best) {
-            this.population.splice(getRandomIntBelow(this.population.length), 1);
-            this.population.push(best);
-        }
-        this.highestOfGeneration = best;
-        this.population = this.nextGeneration;
-    }
-    getBest() {
-        let highest = undefined;
-        for (let i = 0; i < this.population.length; i++) {
-            const best = this.getDNA(i);
-            if (highest === undefined) {
-                highest = best;
-            }
-            else if (best.score > highest.score) {
-                highest = best;
-            }
-        }
-        return highest;
-    }
-    getDNA(index) {
-        return this.population[index];
-    }
-}
-class RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        this.source = source;
-        this.range = [beginning, end];
-        this.helpers = helpers;
-    }
-    asText() {
-        return this.source.substring(this.range[0], this.range[1]);
-    }
-}
+var Word;
+(function (Word) {
+    Word[Word["Teacher"] = 0] = "Teacher";
+    Word[Word["Course"] = 1] = "Course";
+    Word[Word["Student"] = 2] = "Student";
+})(Word || (Word = {}));
 class DNABuilder {
-    constructor(data, helpers) {
-        // generates string of random numbers as initial DNA in population
-        (this.source = (function () {
-            return Array.from({ length: helpers.digitsForTotal }, () => getRandomIntBelow(9)).join("");
-        })()),
-            helpers;
+    constructor(data, utils) {
         this.data = data;
-        this.helpers = helpers;
+        this.utils = utils;
+    }
+    getByteType(index) {
+        return getByteType(index, this.utils);
     }
     build() {
-        return new DNA(this.source, this.helpers, this.data);
+        // dna is represented as fixed size array of bytes
+        const arr = new Uint8ClampedArray(this.utils.bytesPerDNA);
+        // generate random data for inital DNA
+        for (let i = 0; i < this.utils.bytesPerDNA; i = i + 2) {
+            switch (this.getByteType(i)) {
+                case Word.Course:
+                    const course = getRandomInt(this.data.courses.length);
+                    arr[i] = course;
+                    arr[i + 1] = course >>> 8;
+                    break;
+                case Word.Teacher:
+                    const teacher = getRandomInt(this.data.teachers.length);
+                    arr[i] = teacher;
+                    arr[i + 1] = teacher >>> 8;
+                    break;
+                case Word.Student:
+                    const student = getRandomInt(this.data.students.length);
+                    arr[i] = student;
+                    arr[i + 1] = student >>> 8;
+                    break;
+            }
+        }
+        return new DNA({ beginning: 0, length: this.utils.bytesPerDNA }, arr, this.utils, this.data);
     }
 }
-class DNA extends RangeElement {
-    constructor(source, helpers, data) {
-        super(source, 
-        // range of dna is the entire string
-        [0, helpers.digitsForTotal], helpers);
+class Slice {
+    constructor(range, source, utils, data) {
+        this.range = range;
+        this.source = source;
+        this.utils = utils;
         this.data = data;
-        this.helpers = helpers;
-        this.score = undefined;
-        this.info = undefined;
     }
-    getPath(index) {
-        return new Path(this.source, [
-            this.helpers.digitsForPath * index,
-            this.helpers.digitsForPath * index + this.helpers.digitsForPath,
-        ], this.helpers);
+    parseInt(index) {
+        return (this.source[index + 1] << 8) + this.source[index];
     }
-    getPaths() {
-        const arr = [];
-        for (let i = 0; i < this.helpers.numPaths; i++) {
-            arr.push(this.getPath(i));
+    getByteType(index) {
+        return getByteType(index, this.utils);
+    }
+}
+class DNA extends Slice {
+    constructor(range, source, utils, data) {
+        super(range, source, utils, data);
+    }
+    draw(target) {
+        const container = document.createElement("div");
+        const course = (byte) => {
+            const element = document.createElement("span");
+            element.style.color = "blue";
+            element.classList.add("word");
+            element.innerHTML = byte;
+            return element;
+        };
+        const teacher = (byte) => {
+            const element = document.createElement("span");
+            element.style.color = "red";
+            element.classList.add("word");
+            element.innerHTML = byte;
+            return element;
+        };
+        const student = (byte) => {
+            const element = document.createElement("span");
+            element.classList.add("word");
+            element.innerHTML = byte;
+            return element;
+        };
+        const br = () => {
+            const element = document.createElement("br");
+            return element;
+        };
+        for (let i = 0; i < this.utils.bytesPerDNA; i = i + 2) {
+            if (i % this.utils.bytesPerRow === 0 && i !== 0) {
+                container.append(br());
+            }
+            switch (this.getByteType(i)) {
+                case Word.Course:
+                    container.appendChild(course(this.parseInt(i)));
+                    break;
+                case Word.Teacher:
+                    container.appendChild(teacher(this.parseInt(i)));
+                    break;
+                case Word.Student:
+                    container.appendChild(student(this.parseInt(i)));
+                    break;
+            }
         }
-        return arr;
+        target.append(container);
     }
-    getCohort(index) {
-        return new Cohort(this.source, [
-            this.helpers.digitsForCohort * index,
-            this.helpers.digitsForCohort * index + this.helpers.digitsForCohort,
-        ], this.helpers);
-    }
-    getCohorts() {
-        const arr = [];
-        for (let i = 0; i < this.helpers.numCohorts; i++) {
-            arr.push(this.getCohort(i));
-        }
-        return arr;
-    }
-    setScore() {
-        const paths = this.getPaths();
-        let studentDoesntExistCount = 0;
-        let numStudentsNotInRequiredClasses = 0;
-        let numClassesThatDontExist = 0;
-        let numTeachersThatDontExist = 0;
-        let numStudentsNotIscolated = 0;
-        let singularity = 0;
-        for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
-            for (let j = 1; j < paths.length; j++) {
-                // check if the class exists
-                if (parseInt(paths[j - 1].getPeriod(i).getCourse().asText()) >
-                    this.data.courses.length) {
-                    numClassesThatDontExist--;
+    score() {
+        let activeRoomElements = [];
+        let numDuplicateStudentsInRooms = 0;
+        let activeRoomCourse;
+        let activeRoomTeacher;
+        let numStudentsInRoomsNotRequested = 0;
+        let teachersTeachingClassesTheyCantTeach = 0;
+        for (let i = 0; i < this.utils.bytesPerDNA; i = i + 2) {
+            const word = this.parseInt(i);
+            activeRoomElements.push(this.parseInt(i));
+            if (word !== 0) {
+                if (isEndOfRoom(i, this.utils)) {
+                    activeRoomElements = [];
+                    activeRoomCourse = this.parseInt(i);
+                    activeRoomTeacher = this.parseInt(i + 1);
                 }
-                // check teacher exists
-                if (parseInt(paths[j - 1].getPeriod(i).getTeacher().asText()) >
-                    this.data.teachers.length) {
-                    numTeachersThatDontExist--;
-                }
-                for (const student of paths[j - 1].getPeriod(i).getStudents()) {
-                    // check if student exists, if they don't lower dna score
-                    if (parseInt(student.asText()) > this.data.students.length) {
-                        studentDoesntExistCount--;
-                    }
-                    // check if student is in required classes
-                    const parsedStudent = parseInt(student.asText());
-                    if (this.data.students[parsedStudent] === undefined) {
-                        numStudentsNotInRequiredClasses--;
-                    }
-                    else if (this.data.students[parsedStudent].requiredCourses.some((item) => item ===
-                        parseInt(paths[j - 1].getPeriod(i).getCourse().asText())) === false) {
-                        numStudentsNotInRequiredClasses--;
-                    }
-                    for (const student2 of paths[j].getPeriod(i).getStudents()) {
-                        if (student.asText() === student2.asText()) {
-                            singularity--;
+                //   console.log(activeRoomElements);
+                if (this.getByteType(i) === Word.Student) {
+                    // punish DNA if student appears in room more than once
+                    let numDuplicateStudentsInRoom = 0;
+                    for (let j = 0; j < activeRoomElements.length; j = j + 2) {
+                        if (activeRoomElements[j] === this.parseInt(i)) {
+                            numDuplicateStudentsInRoom++;
+                        }
+                        if (numDuplicateStudentsInRoom > 1) {
+                            numDuplicateStudentsInRooms++;
                         }
                     }
+                    // punish DNA if student is in a room they did not request
+                    let isInCorrectRoom = false;
+                    for (let j = 0; j < this.data.students[word].requires.length; j++) {
+                        if (this.data.students[word].requires[j] === activeRoomCourse) {
+                            isInCorrectRoom = true;
+                        }
+                    }
+                    for (let j = 0; j < this.data.students[word].wants.length; j++) {
+                        if (this.data.students[word].wants[j] === activeRoomCourse) {
+                            isInCorrectRoom = true;
+                        }
+                    }
+                    if (!isInCorrectRoom) {
+                        numStudentsInRoomsNotRequested++;
+                    }
                 }
-            }
-        }
-        const cohorts = this.getCohorts();
-        for (let i = 1; i < cohorts.length; i++) {
-            for (const student of cohorts[i].getStudents()) {
-                for (const student2 of cohorts[i - 1].getStudents()) {
-                    if (student.asText() === student2.asText()) {
-                        numStudentsNotIscolated--;
+                if (this.getByteType(i) === Word.Teacher) {
+                    // check if teacher is teaching a class they can't teach
+                    let isTeachingClassTheyCanTeach = false;
+                    for (let j = 0; j < this.data.teachers[word].canTeach.length; j++) {
+                        if (this.data.teachers[word].canTeach[j] === activeRoomCourse) {
+                            isTeachingClassTheyCanTeach = true;
+                        }
+                    }
+                    if (!isTeachingClassTheyCanTeach) {
+                        numStudentsInRoomsNotRequested++;
                     }
                 }
             }
         }
-        let singularityScore = singularity / (this.helpers.numPaths * this.helpers.maxNumPeriods);
-        this.score =
-            numStudentsNotInRequiredClasses +
-                singularity +
-                studentDoesntExistCount +
-                numClassesThatDontExist +
-                numTeachersThatDontExist +
-                numStudentsNotIscolated;
-        this.info = {
-            singularity,
-            studentDoesntExistCount,
-            numStudentsNotInRequiredClasses,
-            numClassesThatDontExist,
-            numTeachersThatDontExist,
-            numStudentsNotIscolated,
+        const total = numStudentsInRoomsNotRequested +
+            numDuplicateStudentsInRooms +
+            teachersTeachingClassesTheyCantTeach;
+        this.error = {
+            total,
+            numDuplicateStudentsInRooms,
+            numStudentsInRoomsNotRequested,
+            teachersTeachingClassesTheyCantTeach,
         };
+        return this.error;
     }
 }
-class Cohort extends RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        super(source, [beginning, end], helpers);
+class PopulationManager {
+    constructor(data) {
+        const bytesPerTeacher = 2;
+        const bytesPerStudent = 2;
+        const bytesPerCourse = 2;
+        const bytesPerRoom = bytesPerCourse +
+            data.meta.numTeachersPerRoom * bytesPerTeacher +
+            data.meta.maxNumStudentsPerRoom * bytesPerStudent;
+        const bytesPerRow = bytesPerRoom * data.meta.numPeriodsAvailable;
+        const bytesPerDNA = bytesPerRow * data.meta.numRoomsAvailable;
+        this.data = data;
+        this.utils = {
+            bytesPerTeacher,
+            bytesPerStudent,
+            bytesPerCourse,
+            bytesPerRoom,
+            bytesPerRow,
+            bytesPerDNA,
+        };
+        this.DNABuilder = new DNABuilder(data, this.utils);
+        this.population = [];
+        this.best = undefined;
+        this.worst = undefined;
     }
-    getPath(pathNum) {
-        return new Path(this.source, [
-            this.range[0] + this.helpers.digitsForPath * pathNum,
-            this.range[0] +
-                this.helpers.digitsForPath * pathNum +
-                this.helpers.digitsForPath,
-        ], this.helpers);
+    getByteType(index) {
+        return getByteType(index, this.utils);
     }
-    getPaths() {
-        const arr = [];
-        for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
-            arr.push(this.getPath(i));
+    createPopulation(number) {
+        for (let i = 0; i < number; i++) {
+            this.population.push(this.DNABuilder.build());
         }
-        return arr;
     }
-    getStudentsInPeriod(index) {
-        const arr = [];
-        for (const path of this.getPaths()) {
-            for (const student of path.getPeriod(index).getStudents()) {
-                arr.push(student);
+    score() {
+        for (let i = 0; i < this.population.length; i++) {
+            this.population[i].score();
+            if (this.best === undefined) {
+                this.best = this.population[i];
+                this.worst = this.population[i];
+            }
+            else if (this.population[i].error.total < this.best.error.total) {
+                this.best = this.population[i];
+            }
+            if (this.population[i].error.total > this.best.error.total) {
+                this.worst = this.population[i];
             }
         }
-        return arr;
     }
-    getStudentsInPeriods() {
+    drawBest(target) {
+        this.best.draw(target);
+    }
+    reproduce() {
         const arr = [];
-        for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
-            arr.push(this.getStudentsInPeriod(i));
-        }
-        return arr;
-    }
-    getStudents() {
-        const arr = [];
-        for (let i = 0; i < this.helpers.numPathsInCohort; i++) {
-            for (const student of this.getStudentsInPeriod(i))
-                arr.push(student);
-        }
-        return arr;
-    }
-}
-class Path extends RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        super(source, [beginning, end], helpers);
-    }
-    getPeriod(index) {
-        return new Period(this.source, [
-            this.range[0] + index * this.helpers.digitsForPeriod,
-            this.range[0] +
-                index * this.helpers.digitsForPeriod +
-                this.helpers.digitsForPeriod,
-        ], this.helpers);
-    }
-    getPeriods() {
-        const arr = [];
-        for (let i = 0; i < this.helpers.maxNumPeriods; i++) {
-            arr.push(this.getPeriod(i));
-        }
-        return arr;
-    }
-}
-class Period extends RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        super(source, [beginning, end], helpers);
-    }
-    getTeacher() {
-        return new Period(this.source, [this.range[0], this.range[0] + this.helpers.digitsForTeacher], this.helpers);
-    }
-    getCourse() {
-        return new Period(this.source, [
-            this.range[0] + this.helpers.offsetForCourse,
-            this.range[0] +
-                this.helpers.offsetForCourse +
-                this.helpers.digitsForCourse,
-        ], this.helpers);
-    }
-    getStudent(index) {
-        return new Student(this.source, [
-            this.range[0] +
-                this.helpers.offsetForStudent +
-                index * this.helpers.digitsForStudent,
-            this.range[0] +
-                this.helpers.offsetForStudent +
-                index * this.helpers.digitsForStudent +
-                this.helpers.digitsForStudent,
-        ], this.helpers);
-    }
-    getStudents() {
-        const arr = [];
-        for (let i = 0; i < this.helpers.maxNumStudentsPerRoom; i++) {
-            arr.push(this.getStudent(i));
-        }
-        return arr;
-    }
-}
-class Teacher extends RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        super(source, [beginning, end], helpers);
-    }
-}
-class Student extends RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        super(source, [beginning, end], helpers);
-    }
-}
-class Course extends RangeElement {
-    constructor(source, [beginning, end], helpers) {
-        super(source, [beginning, end], helpers);
-    }
-}
-function getRandomIntBelow(max) {
-    return Math.floor(Math.random() * Math.floor(max));
-}
-const population = new PopulationManager(Array.from({ length: 200 }, () => ({
-    requiredCourses: Array.from({ length: getRandomIntBelow(6) }, () => getRandomIntBelow(10)),
-})), Array(10), Array(20), {
-    maxNumPeriods: 3,
-    maxNumStudentsPerRoom: 10,
-    numPathsInCohort: 2,
-}).createPopulation(100);
-const viz = document.getElementById("viz");
-const dna = document.createElement("div");
-const br = () => document.createElement("br");
-const makeStudent = (text) => {
-    const element = document.createElement("span");
-    element.style.color = "black";
-    element.innerHTML = text;
-    return element;
-};
-const teacher = (text) => {
-    const element = document.createElement("span");
-    element.style.color = "red";
-    element.innerHTML = text;
-    return element;
-};
-const course = (text) => {
-    const element = document.createElement("span");
-    element.style.color = "green";
-    element.innerHTML = text;
-    return element;
-};
-const info = document.createElement("div");
-let i = 0;
-function callback() {
-    dna.innerHTML = "";
-    population.score();
-    population.reproduce();
-    info.innerHTML = /*html*/ `
-  <br>
-  <p>This is an example school with ${population.highestOfGeneration.data.courses.length} courses, ${population.highestOfGeneration.data.teachers.length} teachers, ${population.highestOfGeneration.data.students.length} students, and ${population.highestOfGeneration.helpers.maxNumPeriods} periods. The large number above is a dna strand that represents the entire school schedule. The gaps between the lines represent cohort iscolation. It's format is as follows:</p>
-  <p><span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ... <span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ...</p>
-  <p><span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ... <span style="color: red">teacher id</span><span style="color: green"> course id</span> student id  student id ...</p>
-  <br>
-  <h3>total error: ${-population.highestOfGeneration.score}</h3>
-  <h3>generation number: ${population.numGeneration}</h3>
-  <p>number of students not in required classes: ${-population
-        .highestOfGeneration.info.numStudentsNotInRequiredClasses}</p>
-  <p>number of students that don't exist: ${-population.highestOfGeneration.info
-        .studentDoesntExistCount}</p>
-  <p>number of classes that don't exist: ${-population.highestOfGeneration.info
-        .numClassesThatDontExist}</p>
-  <p>number of teachers that don't exist: ${-population.highestOfGeneration.info
-        .numTeachersThatDontExist}</p>
-  <p>number of students in 2 places at once: ${-population.highestOfGeneration
-        .info.singularity}</p>
-  <p>number of students not iscolated: ${-population.highestOfGeneration.info
-        .numStudentsNotIscolated}</p>
-  `;
-    for (const cohort of population.highestOfGeneration.getCohorts()) {
-        for (const path of cohort.getPaths()) {
-            for (const period of path.getPeriods()) {
-                dna.append(teacher(period.getTeacher().asText()));
-                dna.append(course(period.getCourse().asText()));
-                for (const student of period.getStudents()) {
-                    dna.append(makeStudent(student.asText()));
+        // // create matting pool with weighted selection
+        // for (let i = 0; i < this.population.length; i++) {
+        //   const value = this.worst.error.total - this.population[i].error.total;
+        //   for (let j = 0; j < value; j++) {
+        //     arr.push(this.population[i]);
+        //   }
+        // }
+        const cand1 = this.population[getRandomInt(this.population.length)];
+        const cand2 = this.population[getRandomInt(this.population.length)];
+        const cand3 = this.population[getRandomInt(this.population.length)];
+        const cand4 = this.population[getRandomInt(this.population.length)];
+        // create a new population of the same size
+        const newPopulation = [];
+        for (let i = 0; i < this.population.length; i++) {
+            const dna1 = cand1.error.total < cand2.error.total ? cand1 : cand2;
+            const dna2 = cand3.error.total < cand4.error.total ? cand3 : cand4;
+            //   console.log(i);
+            //   console.log(dna2);
+            // combine DNA together
+            const combinedDNA = new Uint8ClampedArray(this.utils.bytesPerDNA);
+            let wordFrom = getRandomInt(this.utils.bytesPerDNA);
+            if (wordFrom % 2 !== 0) {
+                wordFrom = wordFrom + 1;
+            }
+            for (let j = 0; j < this.utils.bytesPerDNA; j = j + 2) {
+                // choose which DNA the the word comes from
+                if (wordFrom > wordFrom) {
+                    combinedDNA[j] = dna1.source[j];
+                    combinedDNA[j + 1] = dna1.source[j + 1];
+                }
+                else {
+                    combinedDNA[j] = dna2.source[j];
+                    combinedDNA[j + 1] = dna2.source[j + 1];
+                }
+                if (getRandomInt(50) === 1) {
+                    switch (this.getByteType(j)) {
+                        case Word.Course:
+                            const course = getRandomInt(this.data.courses.length);
+                            combinedDNA[j] = course;
+                            combinedDNA[j + 1] = course >>> 8;
+                            break;
+                        case Word.Teacher:
+                            const teacher = getRandomInt(this.data.teachers.length);
+                            combinedDNA[j] = teacher;
+                            combinedDNA[j + 1] = teacher >>> 8;
+                            break;
+                        case Word.Student:
+                            const student = getRandomInt(this.data.students.length);
+                            combinedDNA[j] = student;
+                            combinedDNA[j + 1] = student >>> 8;
+                            break;
+                    }
+                }
+                if (getRandomInt(100) === 1) {
+                    switch (this.getByteType(j)) {
+                        case Word.Student:
+                            const student = getRandomInt(this.data.students.length);
+                            combinedDNA[j] = 0;
+                            combinedDNA[j + 1] = 0;
+                            break;
+                    }
                 }
             }
-            dna.append(br());
+            newPopulation.push(new DNA({ beginning: 0, length: this.utils.bytesPerDNA }, combinedDNA, this.utils, this.data));
         }
-        dna.append(br());
+        this.population = newPopulation;
     }
-    viz.append(dna);
-    viz.append(info);
-    i++;
-    window.requestAnimationFrame(callback);
 }
-window.requestAnimationFrame(callback);
+function isEndOfRoom(index, utils) {
+    return index % utils.bytesPerRoom === 0;
+}
+function getByteType(index, utils) {
+    if (index % utils.bytesPerRoom === 0) {
+        return Word.Course;
+    }
+    else if ((index - 2) % utils.bytesPerRoom === 0) {
+        return Word.Teacher;
+    }
+    else {
+        return Word.Student;
+    }
+}
+function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
+}
+function main() {
+    const data = {
+        students: [],
+        teachers: [
+            {
+                id: 1,
+                canTeach: [1, 2],
+            },
+            {
+                id: 2,
+                canTeach: [1, 3],
+            },
+            {
+                id: 3,
+                canTeach: [3, 4],
+            },
+            {
+                id: 4,
+                canTeach: [1, 4],
+            },
+            {
+                id: 5,
+                canTeach: [1, 2],
+            },
+            {
+                id: 6,
+                canTeach: [1, 3],
+            },
+            {
+                id: 7,
+                canTeach: [3, 4],
+            },
+            {
+                id: 8,
+                canTeach: [1, 4],
+            },
+            {
+                id: 9,
+                canTeach: [1, 4],
+            },
+            {
+                id: 10,
+                canTeach: [1, 2],
+            },
+        ],
+        courses: [0, 1, 2, 3, 4],
+        meta: {
+            maxNumStudentsPerRoom: 10,
+            numPeriodsAvailable: 3,
+            numRoomsAvailable: 10,
+            numTeachersPerRoom: 1,
+        },
+    };
+    for (let i = 1; i < 90; i++) {
+        data.students.push({
+            id: i,
+            requires: [1, 2],
+            wants: [0, 3, 4],
+        });
+    }
+    const population = new PopulationManager(data);
+    population.createPopulation(100);
+    const info = document.createElement("div");
+    function callback() {
+        info.innerHTML = "";
+        document.getElementById("viz").innerHTML = "";
+        population.score();
+        info.innerHTML = /*html*/ `
+    <p>total: ${population.best.error.total}</p>
+    <p>students in a room twice: ${population.best.error.numDuplicateStudentsInRooms}</p>
+    <p>students in room not requested: ${population.best.error.numStudentsInRoomsNotRequested}</p>
+    <p>teachers teaching classes they can't teach: ${population.best.error.teachersTeachingClassesTheyCantTeach}</p>
+`;
+        population.drawBest(document.getElementById("viz"));
+        population.reproduce();
+        document.body.append(info);
+        requestAnimationFrame(callback);
+    }
+    requestAnimationFrame(callback);
+}
+main();
