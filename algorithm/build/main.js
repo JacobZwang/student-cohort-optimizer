@@ -107,8 +107,16 @@ class DNA extends Slice {
         let activeRoomTeacher;
         let numStudentsInRoomsNotRequested = 0;
         let teachersTeachingClassesTheyCantTeach = 0;
+        let numberOf0s = 0;
+        let numSpotsShouldntBeEmpty = 0;
+        let numSpotsShouldBeEmpty = 0;
+        let numberOfClassesWithoutTeachers = 0;
         for (let i = 0; i < this.utils.bytesPerDNA; i = i + 2) {
             const word = this.parseInt(i);
+            // keep track of how many empty spots there are
+            if (word === 0) {
+                numberOf0s++;
+            }
             activeRoomElements.push(this.parseInt(i));
             if (word !== 0) {
                 if (isEndOfRoom(i, this.utils)) {
@@ -116,7 +124,6 @@ class DNA extends Slice {
                     activeRoomCourse = this.parseInt(i);
                     activeRoomTeacher = this.parseInt(i + 1);
                 }
-                //   console.log(activeRoomElements);
                 if (this.getByteType(i) === Word.Student) {
                     // punish DNA if student appears in room more than once
                     let numDuplicateStudentsInRoom = 0;
@@ -144,28 +151,75 @@ class DNA extends Slice {
                         numStudentsInRoomsNotRequested++;
                     }
                 }
-                if (this.getByteType(i) === Word.Teacher) {
-                    // check if teacher is teaching a class they can't teach
-                    let isTeachingClassTheyCanTeach = false;
-                    for (let j = 0; j < this.data.teachers[word].canTeach.length; j++) {
-                        if (this.data.teachers[word].canTeach[j] === activeRoomCourse) {
-                            isTeachingClassTheyCanTeach = true;
-                        }
-                    }
-                    if (!isTeachingClassTheyCanTeach) {
-                        numStudentsInRoomsNotRequested++;
+            }
+            if (this.getByteType(i) === Word.Teacher) {
+                // check if teacher is teaching a class they can't teach
+                let isTeachingClassTheyCanTeach = false;
+                for (let j = 0; j < this.data.teachers[word].canTeach.length; j++) {
+                    if (this.data.teachers[word].canTeach[j] === activeRoomCourse) {
+                        isTeachingClassTheyCanTeach = true;
                     }
                 }
+                if (!isTeachingClassTheyCanTeach) {
+                    teachersTeachingClassesTheyCantTeach++;
+                }
+                if (word === 0) {
+                    numberOfClassesWithoutTeachers++;
+                }
+            }
+        }
+        let expectedNumberOfEmptySlots = this.data.meta.maxNumStudentsPerRoom *
+            this.data.meta.numPeriodsAvailable *
+            this.data.meta.numRoomsAvailable -
+            this.data.students.length;
+        // punish DNA if threre are too many empty slots
+        if (numberOf0s >
+            this.data.meta.maxNumStudentsPerRoom *
+                this.data.meta.numPeriodsAvailable *
+                this.data.meta.numRoomsAvailable -
+                this.data.students.length) {
+            numSpotsShouldntBeEmpty = numberOf0s - expectedNumberOfEmptySlots;
+            // console.log(numSpotsShouldntBeEmpty);
+        }
+        // punish DNA if there aren't enough empty slots
+        if (numberOf0s < expectedNumberOfEmptySlots - this.data.students.length) {
+            numSpotsShouldBeEmpty = expectedNumberOfEmptySlots - numberOf0s;
+        }
+        // punish DNA if teacher is teaching more than one class at a time
+        let numTimesTeacherIsInMultiplePlacesAtOnce = 0;
+        // loops over periods
+        for (let periodNum = 0; periodNum < this.data.meta.numPeriodsAvailable; periodNum++) {
+            let arr = [];
+            // loops over rooms in period
+            for (let roomNum = 0; roomNum < this.data.meta.numRoomsAvailable; roomNum++) {
+                let word = this.parseInt(roomNum * this.utils.bytesPerRow +
+                    periodNum * this.utils.bytesPerRoom +
+                    this.utils.bytesPerCourse);
+                // checks to see if a teacher has already appeared in that period
+                for (let k = 0; k < arr.length; k++) {
+                    if (arr[k] === word) {
+                        numTimesTeacherIsInMultiplePlacesAtOnce++;
+                    }
+                }
+                arr.push(word);
             }
         }
         const total = numStudentsInRoomsNotRequested +
             numDuplicateStudentsInRooms +
-            teachersTeachingClassesTheyCantTeach;
+            teachersTeachingClassesTheyCantTeach +
+            numTimesTeacherIsInMultiplePlacesAtOnce +
+            numSpotsShouldntBeEmpty +
+            numSpotsShouldBeEmpty +
+            numberOfClassesWithoutTeachers;
         this.error = {
             total,
             numDuplicateStudentsInRooms,
             numStudentsInRoomsNotRequested,
             teachersTeachingClassesTheyCantTeach,
+            numTimesTeacherIsInMultiplePlacesAtOnce,
+            numSpotsShouldntBeEmpty,
+            numSpotsShouldBeEmpty,
+            numberOfClassesWithoutTeachers,
         };
         return this.error;
     }
@@ -307,6 +361,70 @@ function getByteType(index, utils) {
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
 }
+function getRandomIntInclusive(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
+}
+const sampleData = (function () {
+    const numStudents = 90;
+    const numTeachers = 10;
+    const numCourses = 5;
+    const data = {
+        meta: {
+            maxNumStudentsPerRoom: 10,
+            numPeriodsAvailable: 4,
+            numRoomsAvailable: 10,
+            numTeachersPerRoom: 1,
+        },
+        students: [],
+        teachers: [],
+        courses: [],
+    };
+    // generate students
+    for (let i = 1; i < numStudents + 1; i++) {
+        data.students.push({
+            id: i,
+            requires: [
+                Array.from(
+                // random number of periods
+                {
+                    // todo ensure the same courses isn't listed twice
+                    length: getRandomIntInclusive(1, data.meta.numPeriodsAvailable / 2),
+                }, generateStudentClassRequest),
+            ],
+            wants: [
+                Array.from(
+                // random number of periods
+                {
+                    // todo ensure the same courses isn't listed twice
+                    length: getRandomIntInclusive(1, data.meta.numPeriodsAvailable / 2),
+                }, generateStudentClassRequest),
+            ],
+        });
+    }
+    function generateStudentClassRequest() {
+        return Array.from(
+        // random either 1 or 2 choices
+        { length: getRandomIntInclusive(1, 2) }, () => getRandomIntInclusive(1, numCourses));
+    }
+    for (let i = 1; i < numTeachers + 1; i++) {
+        data.teachers.push({
+            id: i,
+            // can teach random number of courses
+            canTeach: Array.from({ length: getRandomIntInclusive(1, 3) }, () => 
+            // randomly select courses they can teach
+            // todo ensure the same courses isn't listed twice
+            getRandomIntInclusive(1, numCourses)),
+        });
+    }
+    for (let i = 1; i < numCourses + 1; i++) {
+        data.courses.push({
+            id: i,
+        });
+    }
+    return data;
+})();
 function main() {
     const data = {
         students: [],
@@ -370,16 +488,21 @@ function main() {
     const population = new PopulationManager(data);
     population.createPopulation(100);
     const info = document.createElement("div");
+    const infoElement = (error) => {
+        const element = document.createElement("p");
+        element.innerHTML = /*html*/ `<p>${error[0]
+            .split(/(?=[A-Z])/)
+            .join(" ")
+            .toLowerCase()} : ${error[1]}</p>`;
+        return element;
+    };
     function callback() {
         info.innerHTML = "";
         document.getElementById("viz").innerHTML = "";
         population.score();
-        info.innerHTML = /*html*/ `
-    <p>total: ${population.best.error.total}</p>
-    <p>students in a room twice: ${population.best.error.numDuplicateStudentsInRooms}</p>
-    <p>students in room not requested: ${population.best.error.numStudentsInRoomsNotRequested}</p>
-    <p>teachers teaching classes they can't teach: ${population.best.error.teachersTeachingClassesTheyCantTeach}</p>
-`;
+        for (const error of Object.entries(population.best.error)) {
+            info.append(infoElement(error));
+        }
         population.drawBest(document.getElementById("viz"));
         population.reproduce();
         document.body.append(info);
